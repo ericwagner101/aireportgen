@@ -63,7 +63,7 @@ def search_web(query):
     log_message("Bing query", query)
     search_url = "https://api.bing.microsoft.com/v7.0/search"
     headers = {"Ocp-Apim-Subscription-Key": bing_api_key}
-    params = {"q": query, "textDecorations": True, "textFormat": "HTML", "'limit": 5}
+    params = {"q": query, "textDecorations": True, "textFormat": "HTML"}
 
     for attempt in range(3):
         try:
@@ -84,7 +84,7 @@ def search_web(query):
         except RequestException as req_err:
             log_message("Request error occurred", str(req_err))
         time.sleep(1)
-    return {"error": "Failed to retrieve web results after 5 attempts"}
+    return {"error": "Failed to retrieve web results after 3 attempts"}
 
 
 # Define a function to search for academic papers using the Semantic Scholar API
