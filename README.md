@@ -1,4 +1,4 @@
-# AI Report Geneartor
+# AI Report Generator
 A recursive enriched AI report generator running in Python Streamlit that pulls URLs from Semantic Scholar and Bing search generates a report using the URLs, evaluates and provides feedback on the initially generated report, and then integrates the feedback with complete citations.
 
 It's a basic design/experiment to provide a very simple clone of Perplexity.ai (I am not affiliated with Perplexity.ai in any way) that you can extend and enhance however you want.
