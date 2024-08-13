@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "reportgen"
+version = "0.1.0"
+description = "AI Report Generator"
+readme = "README.md"
+authors = ["ewagner <user.email=eric@devopsman.com>"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+python-dotenv = "^1.0.1"
+streamlit = "^1.37.0"
+openai = "^1.37.1"
+
