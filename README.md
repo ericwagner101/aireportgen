@@ -14,7 +14,7 @@ It's a basic design/experiment to provide a very simple clone of Perplexity.ai (
 
 # Examples
 
-- Why are black holes block, or are they?
+- Why are black holes black, or are they?
 - What makes the sky blue?
 - What's the history of logic? 
 - Why are there Clowns all around San Francisco on April 1st?
