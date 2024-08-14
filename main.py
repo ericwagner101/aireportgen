@@ -1,11 +1,11 @@
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
-import requests # For Bing web search
-from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException # For capturing errors
-import os # For console logging
-import time # For sleep on retry 
-import re # For stripping HTML
+import requests
+from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
+import os
+import time
+import re
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -17,17 +17,40 @@ openai = OpenAI()
 st.title('AI Report Generator')
 st.write('Enter a question or topic for your report:')
 
+# Check if MULTISET_OPTIONS is set to YES
+show_multiselect = os.getenv("MULTISET_OPTIONS", "NO") == "YES"
+
+# Create a form to group the multiselect and text input together
+with st.form(key='search_form'):
+    if show_multiselect:
+        # Dropdown menu to enable/disable searches
+        search_options = st.multiselect(
+            'Select search options:',
+            ['Bing', 'Semantic Scholar', 'OpenAI'],
+            default=['Bing', 'Semantic Scholar', 'OpenAI']
+        )
+
+        # Show options that are not selected
+        unselected_options = [option for option in ['Bing', 'Semantic Scholar', 'OpenAI'] if option not in search_options]
+        if unselected_options:
+            st.write("Unselected options:", ", ".join(unselected_options))
+    else:
+        search_options = ['Bing', 'Semantic Scholar', 'OpenAI']  # Default options if multiselect is not shown
+
+    # Get the user input for the question or topic
+    topic = st.text_input('Question/Topic')
+
+    # Add a submit button to the form
+    submit_button = st.form_submit_button(label='Search')
+
 # Retrieve the Bing API key from environment variables
 bing_api_key = os.getenv("BING_API_KEY")
 
 # Define the Semantic Scholar API endpoint
 semantic_url = "https://api.semanticscholar.org/graph/v1/paper/search"
 
-# Get the user input for the question or topic
-topic = st.text_input('Question/Topic')
-
-# Define a global variable for max tokens
-MAX_TOKENS = 3000
+# Define a global variable for max tokens. Set to 3000 by default.
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", 3000))
 
 # Define a function to log messages to the console
 def log_message(label, message):
@@ -37,7 +60,6 @@ def log_message(label, message):
 def strip_html_tags(text):
     clean = re.compile('<.*?>')
     return re.sub(clean, '', text)
-
 
 # Define a function to fetch a response from OpenAI's API
 def fetch_openai_response(prompt, max_tokens=MAX_TOKENS):
@@ -56,7 +78,6 @@ def fetch_openai_response(prompt, max_tokens=MAX_TOKENS):
     except Exception as e:
         log_message("OpenAI API error", str(e))
         return {"error": "Failed to fetch response from OpenAI API"}
-
 
 # Define a function to perform a web search using Bing's API
 def search_web(query):
@@ -86,7 +107,6 @@ def search_web(query):
         time.sleep(1)
     return {"error": "Failed to retrieve web results after 3 attempts"}
 
-
 # Define a function to search for academic papers using the Semantic Scholar API
 def search_papers(query):
     log_message("Search papers query", query)
@@ -111,80 +131,78 @@ def search_papers(query):
         time.sleep(1)
     return {"error": "Failed to retrieve papers after 3 attempts"}
 
-
 # Initialize an empty list to store URLs
 result_urls = []
 
 # Main logic to be executed when the user clicks the 'Search' button
-if st.button('Search'):
+if submit_button:
     if topic:
-        refined_query = fetch_openai_response(f"Refine the following search query to make it more specific: {topic}",
-                                              max_tokens=MAX_TOKENS)
-        st.write("Refined Query:", refined_query)
+        if 'OpenAI' in search_options:
+            refined_query = fetch_openai_response(f"Refine the following search query to make it more specific: {topic}",
+                                                  max_tokens=MAX_TOKENS)
+            st.write("Refined Query:", refined_query)
+        else:
+            refined_query = topic
 
-        search_results = search_web(refined_query)
-        if search_results.get('webPages'):
-            for result in search_results['webPages']['value']:
-                # Append the URL to the list
-                if (result_urls.append(result['url'])):
+        if 'Bing' in search_options:
+            search_results = search_web(refined_query)
+            if search_results.get('webPages'):
+                for result in search_results['webPages']['value']:
                     result_urls.append(result['url'])
-        else:
-            st.write("No web results found.")
+            else:
+                st.write("No web results found.")
 
-        # Refined topic for paper search in list form (for better results)
-        refined_topic = fetch_openai_response(f"Turn this into a comma separated list of three or less relevant "
-                                              f"key words: {topic}",
-                                              max_tokens=MAX_TOKENS)
-        paper_result = search_papers(refined_topic)
-        if 'data' in paper_result and paper_result['data']:
-            for paper in paper_result['data']:
-                # Append the URL to the list
-                if (result_urls.append(paper['url'])):
+        if 'Semantic Scholar' in search_options:
+            refined_topic = fetch_openai_response(f"Turn this into a comma separated list of three or less relevant "
+                                                  f"key words: {topic}",
+                                                  max_tokens=MAX_TOKENS) if 'OpenAI' in search_options else topic
+            paper_result = search_papers(refined_topic)
+            if 'data' in paper_result and paper_result['data']:
+                for paper in paper_result['data']:
                     result_urls.append(paper['url'])
-        else:
-            st.write("No papers found.")
+            else:
+                st.write("No papers found.")
 
-        # Convert the result_urls list to a string
-        urls_string = ", ".join(result_urls)
-        
-        short_article = fetch_openai_response(
-            f"Write a short article about the subject or answering the question, including formal citations to the "
-            f"relevant papers at the bottom. Use the following URLs as references: {urls_string}. The question: {topic}")
-        st.write("---")
-        st.write(short_article)
+        if 'OpenAI' in search_options:
+            urls_string = ", ".join(result_urls)
+            short_article = fetch_openai_response(
+                f"Write a short article about the subject or answering the question, including formal citations to the "
+                f"relevant papers at the bottom. Use the following URLs as references: {urls_string}. The question: {topic}")
+            st.write("---")
+            st.write(short_article)
 
-        feedback = fetch_openai_response(
-            f"Provide editorial feedback on the following article, noting any problems, areas of improvement, "
-            f"or inaccuracies in article. Keeping it 500 characters or less: {short_article}")
-        st.write("---")
-        st.subheader("Feedback")
-        st.write(feedback)
+            feedback = fetch_openai_response(
+                f"Provide editorial feedback on the following article, noting any problems, areas of improvement, "
+                f"or inaccuracies in article. Keeping it 500 characters or less: {short_article}")
+            st.write("---")
+            st.subheader("Feedback")
+            st.write(feedback)
 
-        comment = fetch_openai_response(
-            f"Write a response to and comment on the following article, ie like a web critic's comment on a "
-            f"blog post. Add specific suggestions: {short_article}")
-        st.write("---")
-        st.subheader("Critic's Comments")
-        st.write(comment)
+            comment = fetch_openai_response(
+                f"Write a response to and comment on the following article, ie like a web critic's comment on a "
+                f"blog post. Add specific suggestions: {short_article}")
+            st.write("---")
+            st.subheader("Critic's Comments")
+            st.write(comment)
 
-        rewrite = fetch_openai_response(
-            f"Rewrite the following article incorporating this editorial feedback comments: {feedback} -- "
-            f"Use the following URLs as references: {urls_string}. Make sure to add references at the end of the story. "
-            f"The article to rewrite: {short_article}")
-        st.write("---")
-        st.subheader("Rewrite Based on Critic's Comments")
-        st.write(rewrite)
+            rewrite = fetch_openai_response(
+                f"Rewrite the following article incorporating this editorial feedback comments: {feedback} -- "
+                f"Use the following URLs as references: {urls_string}. Make sure to add references at the end of the story. "
+                f"The article to rewrite: {short_article}")
+            st.write("---")
+            st.subheader("Rewrite Based on Critic's Comments")
+            st.write(rewrite)
 
-        critic = fetch_openai_response(
-            f"Respond to this critic's comments about the following short article. Include references. The feedback: {feedback} -- "
-            f"The article to reference: {short_article} The rewritten article to reference: {rewrite}")
-        st.write("---")
-        st.subheader("Response to Critic")
-        st.write(critic)
+            critic = fetch_openai_response(
+                f"Respond to this critic's comments about the following short article. Include references. The feedback: {feedback} -- "
+                f"The article to reference: {short_article} The rewritten article to reference: {rewrite}")
+            st.write("---")
+            st.subheader("Response to Critic")
+            st.write(critic)
 
         st.write("---")
         st.subheader("Full citation details for the academic papers and web sources")
-        if search_results.get('webPages'):
+        if 'Bing' in search_options and search_results.get('webPages'):
             st.write("---")
             st.write("Web Results:")
             for result in search_results['webPages']['value']:
@@ -198,8 +216,7 @@ if st.button('Search'):
         else:
             st.write("No web results found.")
 
-        paper_result = search_papers(refined_topic)
-        if 'data' in paper_result and paper_result['data']:
+        if 'Semantic Scholar' in search_options and 'data' in paper_result and paper_result['data']:
             st.write("---")
             st.write("Academic Papers:")
             for paper in paper_result['data']:

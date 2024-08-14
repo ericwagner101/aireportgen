@@ -19,3 +19,6 @@ It's a basic design/experiment to provide a very simple clone of Perplexity.ai (
 - What's the history of logic? 
 - Why are there Clowns all around San Francisco on April 1st?
 
+# Other Options
+- Set MAX_TOKENS in .env (defaults to 3000)
+- Set MULTISET_OPTIONS in .env (useful for troubleshooting when set to YES. Defaults to NO)
