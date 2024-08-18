@@ -22,3 +22,15 @@ It's a basic design/experiment to provide a very simple clone of Perplexity.ai (
 # Other Options
 - Set MAX_TOKENS in .env (defaults to 3000)
 - Set MULTISET_OPTIONS in .env (useful for troubleshooting when set to YES. Defaults to NO)
+- Set RESPONSE_TO_CRITIC to NO in .env to disable running and displaying the response to critic step.
+- Set SHOW_ALL_WORK to NO to only show the final report (this duplicates Perplexity.ai functionality)
+
+# .env Settings to Emulate perplexity.ai
+```
+OPENAI_API_KEY=your_openai_key
+BING_API_KEY=your_bing_key
+MAX_TOKENS=3000
+MULTISET_OPTIONS=NO
+RESPONSE_TO_CRITIC=NO
+SHOW_ALL_WORK=NO
+```

@@ -17,8 +17,14 @@ openai = OpenAI()
 st.title('AI Report Generator')
 st.write('Enter a question or topic for your report:')
 
+# Check if RESPONSE_TO_CRITIC is set to YES
+response_to_critic = os.getenv("RESPONSE_TO_CRITIC", "NO") == "YES"
+
 # Check if MULTISET_OPTIONS is set to YES
 show_multiselect = os.getenv("MULTISET_OPTIONS", "NO") == "YES"
+
+# Check if SHOW_ALL_WORK is set to YES
+show_all_work = os.getenv("SHOW_ALL_WORK", "NO") == "YES"
 
 # Create a form to group the multiselect and text input together
 with st.form(key='search_form'):
@@ -136,96 +142,104 @@ result_urls = []
 
 # Main logic to be executed when the user clicks the 'Search' button
 if submit_button:
-    if topic:
-        if 'OpenAI' in search_options:
-            refined_query = fetch_openai_response(f"Refine the following search query to make it more specific: {topic}",
-                                                  max_tokens=MAX_TOKENS)
-            st.write("Refined Query:", refined_query)
-        else:
-            refined_query = topic
-
-        if 'Bing' in search_options:
-            search_results = search_web(refined_query)
-            if search_results.get('webPages'):
-                for result in search_results['webPages']['value']:
-                    result_urls.append(result['url'])
+    with st.spinner('Processing...'):
+        if topic:
+            if 'OpenAI' in search_options:
+                refined_query = fetch_openai_response(f"Refine the following search query to make it more specific: {topic}",
+                                                      max_tokens=MAX_TOKENS)
+                st.write("Refined Query:", refined_query)
             else:
-                st.write("No web results found.")
+                refined_query = topic
 
-        if 'Semantic Scholar' in search_options:
-            refined_topic = fetch_openai_response(f"Turn this into a comma separated list of three or less relevant "
-                                                  f"key words: {topic}",
-                                                  max_tokens=MAX_TOKENS) if 'OpenAI' in search_options else topic
-            paper_result = search_papers(refined_topic)
-            if 'data' in paper_result and paper_result['data']:
-                for paper in paper_result['data']:
-                    result_urls.append(paper['url'])
-            else:
-                st.write("No papers found.")
+            if 'Bing' in search_options:
+                search_results = search_web(refined_query)
+                if search_results.get('webPages'):
+                    for result in search_results['webPages']['value']:
+                        result_urls.append(result['url'])
+                else:
+                    st.write("No web results found.")
 
-        if 'OpenAI' in search_options:
-            urls_string = ", ".join(result_urls)
-            short_article = fetch_openai_response(
-                f"Write a short article about the subject or answering the question, including formal citations to the "
-                f"relevant papers at the bottom. Use the following URLs as references: {urls_string}. The question: {topic}")
-            st.write("---")
-            st.write(short_article)
+            if 'Semantic Scholar' in search_options:
+                refined_topic = fetch_openai_response(f"Turn this into a comma separated list of three or less relevant "
+                                                      f"key words: {topic}",
+                                                      max_tokens=MAX_TOKENS) if 'OpenAI' in search_options else topic
+                paper_result = search_papers(refined_topic)
+                if 'data' in paper_result and paper_result['data']:
+                    for paper in paper_result['data']:
+                        result_urls.append(paper['url'])
+                else:
+                    st.write("No papers found.")
 
-            feedback = fetch_openai_response(
-                f"Provide editorial feedback on the following article, noting any problems, areas of improvement, "
-                f"or inaccuracies in article. Keeping it 500 characters or less: {short_article}")
-            st.write("---")
-            st.subheader("Feedback")
-            st.write(feedback)
+            if 'OpenAI' in search_options:
+                urls_string = ", ".join(result_urls)
+                short_article = fetch_openai_response(
+                    f"Write a short article about the subject or answering the question, including formal citations to the "
+                    f"relevant papers at the bottom. Use the following URLs as references: {urls_string}. The question: {topic}")
+                if show_all_work:
+                    st.write("---")
+                    st.write(short_article)
 
-            comment = fetch_openai_response(
-                f"Write a response to and comment on the following article, ie like a web critic's comment on a "
-                f"blog post. Add specific suggestions: {short_article}")
-            st.write("---")
-            st.subheader("Critic's Comments")
-            st.write(comment)
+                feedback = fetch_openai_response(
+                    f"Provide editorial feedback on the following article, noting any problems, areas of improvement, "
+                    f"or inaccuracies in article. Keeping it 500 characters or less: {short_article}")
+                if show_all_work:
+                    st.write("---")
+                    st.subheader("Feedback")
+                    st.write(feedback)
 
-            rewrite = fetch_openai_response(
-                f"Rewrite the following article incorporating this editorial feedback comments: {feedback} -- "
-                f"Use the following URLs as references: {urls_string}. Make sure to add references at the end of the story. "
-                f"The article to rewrite: {short_article}")
-            st.write("---")
-            st.subheader("Rewrite Based on Critic's Comments")
-            st.write(rewrite)
+                comment = fetch_openai_response(
+                    f"Write a response to and comment on the following article, ie like a web critic's comment on a "
+                    f"blog post. Add specific suggestions: {short_article}")
+                if show_all_work:
+                    st.write("---")
+                    st.subheader("Critic's Comments")
+                    st.write(comment)
 
-            critic = fetch_openai_response(
-                f"Respond to this critic's comments about the following short article. Include references. The feedback: {feedback} -- "
-                f"The article to reference: {short_article} The rewritten article to reference: {rewrite}")
-            st.write("---")
-            st.subheader("Response to Critic")
-            st.write(critic)
+                rewrite = fetch_openai_response(
+                    f"Rewrite the following article incorporating this editorial feedback comments: {feedback} -- "
+                    f"Use the following URLs as references: {urls_string}. Make sure to add references at the end of the story. "
+                    f"The article to rewrite: {short_article}")
+                st.write("---")
+                if show_all_work:
+                    st.subheader("Rewrite Based on Critic's Comments")
+                st.write(rewrite)
 
-        st.write("---")
-        st.subheader("Full citation details for the academic papers and web sources")
-        if 'Bing' in search_options and search_results.get('webPages'):
-            st.write("---")
-            st.write("Web Results:")
-            for result in search_results['webPages']['value']:
-                st.write(f"**Title**: {result['name']}")
-                st.write(f"**URL**: {result['url']}")
-                st.write(f"**Snippet**: {result['snippet']}")
-                st.write("")
-            all_snippets = " ".join([result['snippet'] for result in search_results['webPages']['value']])
-            summary = fetch_openai_response(f"Summarize the following content: {all_snippets}", max_tokens=MAX_TOKENS)
-            st.write(f"**Summary**: {summary}")
+                if response_to_critic:
+                    critic = fetch_openai_response(
+                        f"Respond to this critic's comments about the following short article. Include references. The feedback: {feedback} -- "
+                        f"The article to reference: {short_article} The rewritten article to reference: {rewrite}")
+                    if show_all_work:
+                        st.write("---")
+                        st.subheader("Response to Critic")
+                        st.write(critic)
+
+            if show_all_work:
+                st.write("---")
+                st.subheader("Full citation details for the academic papers and web sources")
+                if 'Bing' in search_options and search_results.get('webPages'):
+                    st.write("---")
+                    st.write("Web Results:")
+                    for result in search_results['webPages']['value']:
+                        st.write(f"**Title**: {result['name']}")
+                        st.write(f"**URL**: {result['url']}")
+                        st.write(f"**Snippet**: {result['snippet']}")
+                        st.write("")
+                    all_snippets = " ".join([result['snippet'] for result in search_results['webPages']['value']])
+                    summary = fetch_openai_response(f"Summarize the following content: {all_snippets}", max_tokens=MAX_TOKENS)
+                    st.write(f"**Summary**: {summary}")
+                else:
+                    st.write("No web results found.")
+
+                if 'Semantic Scholar' in search_options and 'data' in paper_result and paper_result['data']:
+                    st.write("---")
+                    st.write("Academic Papers:")
+                    for paper in paper_result['data']:
+                        st.write(f"**Title**: {paper['title']}")
+                        st.write(f"**Authors**: {', '.join(author['name'] for author in paper['authors'])}")
+                        st.write(f"**Year**: {paper['year']}")
+                        st.write(f"**URL**: {paper['url']}")
+                        st.write("")
+                else:
+                    st.write("No papers found.")
         else:
-            st.write("No web results found.")
-
-        if 'Semantic Scholar' in search_options and 'data' in paper_result and paper_result['data']:
-            st.write("---")
-            st.write("Academic Papers:")
-            for paper in paper_result['data']:
-                st.write(f"**Title**: {paper['title']}")
-                st.write(f"**Authors**: {', '.join(author['name'] for author in paper['authors'])}")
-                st.write(f"**Year**: {paper['year']}")
-                st.write(f"**URL**: {paper['url']}")
-                st.write("")
-        else:
-            st.write("No papers found.")
-    else:
-        st.write("Please enter a question or topic.")
+            st.write("Please enter a question or topic.")
