@@ -197,8 +197,8 @@ if submit_button:
 
                 rewrite = fetch_openai_response(
                     f"Rewrite the following article incorporating this editorial feedback comments: {feedback} -- "
-                    f"Use the following URLs as references: {urls_string}. Make sure to add references at the end of the story. "
-                    f"The article to rewrite: {short_article}")
+                    f"Use the following URLs as references: {urls_string}. Make sure to add references and citations "
+                    f"at the end of the story. Do not skip citations. The article to rewrite: {short_article}")
                 st.write("---")
                 if show_all_work:
                     st.subheader("Rewrite Based on Critic's Comments")
