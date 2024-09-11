@@ -72,7 +72,7 @@ def fetch_openai_response(prompt, max_tokens=MAX_TOKENS):
     log_message("Prompt", prompt)
     try:
         response = openai.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-2024-08-06",
             temperature=0.2,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
